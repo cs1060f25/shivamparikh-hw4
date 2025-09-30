@@ -32,8 +32,9 @@ def _normalize_measure_name(name: str) -> str:
 ALLOWED_MEASURE_CANONICAL = { _normalize_measure_name(n): n for n in ALLOWED_MEASURE_NAMES }
 
 # Resolve absolute path to the SQLite database at project root
-_BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-DB_PATH = os.path.join(_BASE_DIR, 'data.db')
+# _BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+# DB_PATH = os.path.join(_BASE_DIR, 'data.db')
+DB_PATH = "./data.db"
 
 @app.route('/county_data', methods=['POST'])
 def county_data():
@@ -47,6 +48,9 @@ def county_data():
 
     zip_value = payload.get('zip')
     measure_name = payload.get('measure_name')
+    coffee = payload.get('coffee')
+    if(coffee == "teapot"):
+        return jsonify({"error": "I'm a teapot"}), 418
 
     # Validate presence
     if zip_value is None or measure_name is None:
