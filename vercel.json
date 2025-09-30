@@ -1,10 +1,26 @@
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
-  ],
-  "functions": {
-    "api/index.py": {
-      "includeFiles": "data.db"
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python",
+      "config": {
+        "includeFiles": "data.db"
+      }
     }
-  }
+  ],
+  "routes": [
+    {
+      "src": "/county_data",
+      "dest": "api/index.py"
+    },
+    {
+      "src": "/test",
+      "dest": "api/index.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "api/index.py"
+    }
+  ]
 }
