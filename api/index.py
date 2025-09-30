@@ -36,6 +36,10 @@ ALLOWED_MEASURE_CANONICAL = { _normalize_measure_name(n): n for n in ALLOWED_MEA
 # DB_PATH = os.path.join(_BASE_DIR, 'data.db')
 DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'data.db'))
 
+@app.route('/test', methods=['GET'])
+def test():
+    return jsonify({"message": "Hello, World!"}), 200
+
 @app.route('/county_data', methods=['POST'])
 def county_data():
     # Require JSON body
