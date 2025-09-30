@@ -34,7 +34,7 @@ ALLOWED_MEASURE_CANONICAL = { _normalize_measure_name(n): n for n in ALLOWED_MEA
 # Resolve absolute path to the SQLite database at project root
 # _BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 # DB_PATH = os.path.join(_BASE_DIR, 'data.db')
-DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), 'data.db'))
+DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data.db'))
 
 @app.route('/test', methods=['GET'])
 def test():
@@ -72,7 +72,7 @@ def county_data():
 
     # Query database with parameterized SQL to prevent injection
     try:
-        conn = sqlite3.connect(DB_PATH)
+        conn = sqlite3.connect(f'file:{DB_PATH}?mode=ro', uri=True)
         conn.row_factory = sqlite3.Row
         sql = (
             """
