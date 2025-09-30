@@ -34,7 +34,7 @@ ALLOWED_MEASURE_CANONICAL = { _normalize_measure_name(n): n for n in ALLOWED_MEA
 # Resolve absolute path to the SQLite database at project root
 # _BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 # DB_PATH = os.path.join(_BASE_DIR, 'data.db')
-DB_PATH = "./data.db"
+DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data.db'))
 
 @app.route('/county_data', methods=['POST'])
 def county_data():
