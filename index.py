@@ -100,7 +100,8 @@ def county_data():
         if not os.path.exists(DB_PATH):
             return jsonify({"error": f"Database file not found at {DB_PATH}"}), 500
             
-        conn = sqlite3.connect(f'file:{DB_PATH}?mode=ro', uri=True)
+        conn = sqlite3.connect(DB_PATH)
+        print(f"Connected to database")
         conn.row_factory = sqlite3.Row
         sql = (
             """
@@ -117,6 +118,7 @@ def county_data():
         rows = cur.fetchall()
     except sqlite3.Error as e:
         print(f"Database error: {e}")
+        print(f"Error: {e.args}")
         return jsonify({"error": "Database error"}), 500
     finally:
         try:

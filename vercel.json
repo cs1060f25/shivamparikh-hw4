@@ -12,7 +12,7 @@
   "routes": [
     {
       "src": "/county_data",
-      "methods": ["GET", "POST"],
+      "methods": ["POST"],
       "dest": "index.py"
     },
     {
