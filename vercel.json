@@ -5,22 +5,33 @@
       "src": "index.py",
       "use": "@vercel/python",
       "config": {
-        "includeFiles": "data.db"
+        "includeFiles": ["data.db", "templates/**"]
       }
     }
   ],
   "routes": [
     {
       "src": "/county_data",
+      "methods": ["GET", "POST"],
       "dest": "index.py"
     },
     {
       "src": "/test",
+      "methods": ["GET"],
+      "dest": "index.py"
+    },
+    {
+      "src": "/diagnostic",
+      "methods": ["GET"],
+      "dest": "index.py"
+    },
+    {
+      "src": "/",
       "dest": "index.py"
     },
     {
       "src": "/(.*)",
-      "dest": "index.html"
+      "dest": "index.py"
     }
   ]
 }

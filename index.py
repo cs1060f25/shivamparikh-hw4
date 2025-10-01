@@ -2,8 +2,6 @@ from flask import Flask, render_template, request, jsonify
 import re
 import os
 import sqlite3
-import subprocess
-import sys
 
 app = Flask(__name__)
 
@@ -33,71 +31,43 @@ def _normalize_measure_name(name: str) -> str:
 
 ALLOWED_MEASURE_CANONICAL = { _normalize_measure_name(n): n for n in ALLOWED_MEASURE_NAMES }
 
-"""Database bootstrap on cold start.
-We try to create data.db using csv_to_sqlite.py if it doesn't exist.
-In read-only serverless environments, we fall back to /tmp which is writable.
-"""
+# Resolve absolute path to the SQLite database
+# On Vercel, __file__ is in the same directory as data.db
+# This works both locally and on Vercel serverless
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data.db')
 
-_BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-_ROOT_DIR = os.path.abspath(os.path.join(_BASE_DIR))  # file sits at project root alongside CSVs
-
-_SCRIPT = os.path.join(_ROOT_DIR, 'csv_to_sqlite.py')
-_CSV1 = os.path.join(_ROOT_DIR, 'county_health_rankings.csv')
-_CSV2 = os.path.join(_ROOT_DIR, 'zip_county.csv')
-
-_PRIMARY_DB = os.path.join(_ROOT_DIR, 'data.db')
-_TMP_DB = os.path.join('/tmp', 'data.db')
-
-def _file_exists(path: str) -> bool:
-    try:
-        return os.path.isfile(path)
-    except Exception:
-        return False
-
-def _try_bootstrap_db(target_db: str) -> None:
-    if not _file_exists(_SCRIPT) or not _file_exists(_CSV1) or not _file_exists(_CSV2):
-        return
-    # Run imports sequentially; avoid interactive prompts and capture errors for logging
-    cmds = [
-        [sys.executable, _SCRIPT, target_db, _CSV1],
-        [sys.executable, _SCRIPT, target_db, _CSV2],
-    ]
-    for cmd in cmds:
-        try:
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        except Exception:
-            # If it fails (e.g., read-only FS), just stop trying
-            break
-
-# Decide target DB path
-DB_PATH = _PRIMARY_DB
-if not _file_exists(DB_PATH):
-    # Try to create at root; if fails, try /tmp
-    try:
-        _try_bootstrap_db(DB_PATH)
-    except Exception:
-        pass
-if not _file_exists(DB_PATH):
-    try:
-        _try_bootstrap_db(_TMP_DB)
-        if _file_exists(_TMP_DB):
-            DB_PATH = _TMP_DB
-    except Exception:
-        pass
+# Fallback: check if DB exists, otherwise try current working directory
+if not os.path.exists(DB_PATH):
+    DB_PATH = os.path.join(os.getcwd(), 'data.db')
 
 @app.route('/test', methods=['GET'])
 def test():
     return jsonify({"message": "Hello, World!"}), 200
 
-@app.route('/county_data', methods=['POST'])
-def county_data():
-    # Require JSON body
-    if not request.is_json:
-        return jsonify({"error": "Content-Type must be application/json"}), 400
+@app.route('/diagnostic', methods=['GET'])
+def diagnostic():
+    """Diagnostic endpoint to check database accessibility on Vercel"""
+    return jsonify({
+        "db_path": DB_PATH,
+        "db_exists": os.path.exists(DB_PATH),
+        "file_location": __file__,
+        "working_directory": os.getcwd(),
+        "directory_contents": os.listdir(os.path.dirname(os.path.abspath(__file__)))
+    }), 200
 
-    payload = request.get_json(silent=True)
-    if payload is None or not isinstance(payload, dict):
-        return jsonify({"error": "Invalid JSON body"}), 400
+@app.route('/county_data', methods=['GET', 'POST'])
+def county_data():
+    # Handle both GET (query params) and POST (JSON body)
+    if request.method == 'POST':
+        if not request.is_json:
+            return jsonify({"error": "Content-Type must be application/json"}), 400
+        
+        payload = request.get_json(silent=True)
+        if payload is None or not isinstance(payload, dict):
+            return jsonify({"error": "Invalid JSON body"}), 400
+    else:
+        # GET request - use query parameters
+        payload = request.args.to_dict()
 
     zip_value = payload.get('zip')
     measure_name = payload.get('measure_name')
@@ -121,7 +91,15 @@ def county_data():
 
     # Query database with parameterized SQL to prevent injection
     try:
-        print(DB_PATH)
+        # Debug logging for Vercel
+        print(f"DB_PATH: {DB_PATH}")
+        print(f"DB exists: {os.path.exists(DB_PATH)}")
+        print(f"__file__: {__file__}")
+        print(f"cwd: {os.getcwd()}")
+        
+        if not os.path.exists(DB_PATH):
+            return jsonify({"error": f"Database file not found at {DB_PATH}"}), 500
+            
         conn = sqlite3.connect(f'file:{DB_PATH}?mode=ro', uri=True)
         conn.row_factory = sqlite3.Row
         sql = (
