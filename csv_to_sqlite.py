@@ -244,9 +244,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # Create database, drop existing table of the same name, create new table
     try:
         conn = sqlite3.connect(output_db)
-        conn.execute("PRAGMA foreign_keys = ON")
-        conn.execute("PRAGMA journal_mode = WAL")
-        conn.execute("PRAGMA synchronous = NORMAL")
+        # conn.execute("PRAGMA foreign_keys = ON")
+        # conn.execute("PRAGMA journal_mode = WAL")
+        # conn.execute("PRAGMA synchronous = NORMAL")
 
         conn.execute(f"DROP TABLE IF EXISTS {table_name}")
         create_sql = build_create_table_sql(table_name, list(zip(sanitized_headers, inferred_types)))
