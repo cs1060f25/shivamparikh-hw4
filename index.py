@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, jsonify
 import re
 import os
 import sqlite3
+import subprocess
+import sys
 
 app = Flask(__name__)
 
@@ -31,10 +33,57 @@ def _normalize_measure_name(name: str) -> str:
 
 ALLOWED_MEASURE_CANONICAL = { _normalize_measure_name(n): n for n in ALLOWED_MEASURE_NAMES }
 
-# Resolve absolute path to the SQLite database at project root
-# _BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-# DB_PATH = os.path.join(_BASE_DIR, 'data.db')
-DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data.db'))
+"""Database bootstrap on cold start.
+We try to create data.db using csv_to_sqlite.py if it doesn't exist.
+In read-only serverless environments, we fall back to /tmp which is writable.
+"""
+
+_BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+_ROOT_DIR = os.path.abspath(os.path.join(_BASE_DIR))  # file sits at project root alongside CSVs
+
+_SCRIPT = os.path.join(_ROOT_DIR, 'csv_to_sqlite.py')
+_CSV1 = os.path.join(_ROOT_DIR, 'county_health_rankings.csv')
+_CSV2 = os.path.join(_ROOT_DIR, 'zip_county.csv')
+
+_PRIMARY_DB = os.path.join(_ROOT_DIR, 'data.db')
+_TMP_DB = os.path.join('/tmp', 'data.db')
+
+def _file_exists(path: str) -> bool:
+    try:
+        return os.path.isfile(path)
+    except Exception:
+        return False
+
+def _try_bootstrap_db(target_db: str) -> None:
+    if not _file_exists(_SCRIPT) or not _file_exists(_CSV1) or not _file_exists(_CSV2):
+        return
+    # Run imports sequentially; avoid interactive prompts and capture errors for logging
+    cmds = [
+        [sys.executable, _SCRIPT, target_db, _CSV1],
+        [sys.executable, _SCRIPT, target_db, _CSV2],
+    ]
+    for cmd in cmds:
+        try:
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except Exception:
+            # If it fails (e.g., read-only FS), just stop trying
+            break
+
+# Decide target DB path
+DB_PATH = _PRIMARY_DB
+if not _file_exists(DB_PATH):
+    # Try to create at root; if fails, try /tmp
+    try:
+        _try_bootstrap_db(DB_PATH)
+    except Exception:
+        pass
+if not _file_exists(DB_PATH):
+    try:
+        _try_bootstrap_db(_TMP_DB)
+        if _file_exists(_TMP_DB):
+            DB_PATH = _TMP_DB
+    except Exception:
+        pass
 
 @app.route('/test', methods=['GET'])
 def test():
@@ -72,6 +121,7 @@ def county_data():
 
     # Query database with parameterized SQL to prevent injection
     try:
+        print(DB_PATH)
         conn = sqlite3.connect(f'file:{DB_PATH}?mode=ro', uri=True)
         conn.row_factory = sqlite3.Row
         sql = (
